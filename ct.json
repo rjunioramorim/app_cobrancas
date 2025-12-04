@@ -1,0 +1,430 @@
+{
+    "name": "Cobranças - CT INDIABOXE",
+    "nodes": [
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                -224,
+                -80
+            ],
+            "id": "80049d55-e312-4065-b11e-70d0f91cd3a5",
+            "name": "When clicking ‘Execute workflow’"
+        },
+        {
+            "parameters": {
+                "url": "http://host.docker.internal:3000/api/integrations/cobrancas",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpBearerAuth",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                -16,
+                -80
+            ],
+            "id": "4d5992e8-f68f-43bd-b678-c80dd42bdc71",
+            "name": "BuscaCobranças",
+            "credentials": {
+                "httpBearerAuth": {
+                    "id": "N26sTML6w0KUAdj4",
+                    "name": "Maria13@hotmail.com"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "data",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitOut",
+            "typeVersion": 1,
+            "position": [
+                192,
+                -80
+            ],
+            "id": "3ed6c0c4-ce03-4a0c-b991-1f1ad81c14a0",
+            "name": "GeraArrayCobrancas"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                400,
+                -80
+            ],
+            "id": "9c8db873-b7bc-4431-9a86-8e0edbfb570b",
+            "name": "Loop Over Items"
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.status }}",
+                                        "rightValue": "ATRASADO",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "id": "3ac6f35b-4873-4364-b9e4-b8914a5026bd"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "ATRASADO"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "18090b89-851f-4a99-8666-044e2a420a53",
+                                        "leftValue": "={{ $json.status }}",
+                                        "rightValue": "PENDENTE",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals",
+                                            "name": "filter.operator.equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "PENDENTE"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.3,
+            "position": [
+                864,
+                -64
+            ],
+            "id": "09a96e3e-9cff-404a-a7f6-ec9de83ff84d",
+            "name": "Switch"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "88060091-4f5c-4d18-bbec-08d805bafe2b",
+                            "name": "=msg",
+                            "value": "=Oi {{ $json.client }}, aqui é do CT IndiaBox. Você tem uma parcela de {{ $json.valor }}, que venceu em {{ new Date($json.dataVencimento).format('dd/MM/yyyy') }}. Regularize sua situação. Não fique sem treinar.",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1136,
+                -176
+            ],
+            "id": "824f841e-be7a-4ca2-ab95-2b9ab4d4640f",
+            "name": "MsgAtrasado"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "88060091-4f5c-4d18-bbec-08d805bafe2b",
+                            "name": "msg",
+                            "value": "=Oi {{ $json.client }}, aqui é do CT IndiaBox. Essa mensagem é só pra lembrar do vencimento da sua mensalidade com valor de {{ $json.valor }}, no dia {{ new Date($json.dataVencimento).format('dd/MM/yyyy') }}. Evite atrasos para não ficar sem treinar. ",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1136,
+                -32
+            ],
+            "id": "89548341-a3e5-4a4f-b72b-60a2c98972f4",
+            "name": "MsgPendente"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "e249a039-5364-4a89-93f8-17c1c0cced82",
+                            "name": "id",
+                            "value": "={{ $json.id }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "31d72bce-82f5-4aae-9656-2978882facf7",
+                            "name": "client",
+                            "value": "={{ $json.client.nome }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "e2a35ed3-524c-4233-9768-9ea741718bf8",
+                            "name": "fone",
+                            "value": "={{ $json.client.fone }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "ae3b70e4-8f4e-44aa-8d52-9bdf6e97cd15",
+                            "name": "valor",
+                            "value": "={{ $json.valor }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "2236c3c7-d108-427e-9ba3-37648570033a",
+                            "name": "status",
+                            "value": "={{ $json.status }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "219700f7-306e-452b-8cfb-27130ab143d7",
+                            "name": "messageAttempts",
+                            "value": "={{ $json.messageAttempts }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "73f6cd6f-df54-470c-b552-0d7d6587a437",
+                            "name": "dataVencimento",
+                            "value": "={{ $json.dataVencimento }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                624,
+                -64
+            ],
+            "id": "50eac15a-f18a-4e55-906c-f64ecb0331d3",
+            "name": "Edit Fields"
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                1360,
+                -112
+            ],
+            "id": "09ecd9fe-3bc9-4236-b391-cf135013e919",
+            "name": "Merge"
+        },
+        {
+            "parameters": {
+                "amount": "={{ Math.floor(Math.random() * (25 - 5 + 1)) + 5 }}"
+            },
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1856,
+                -80
+            ],
+            "id": "1941c611-3c9c-46d0-ac6f-6cec95f0d94b",
+            "name": "Wait",
+            "webhookId": "b262e5c8-caaf-42e3-aec8-c31507530565"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://evolution-api:8080/message/sendText/jr",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "C981939B3068-49F3-9DD9-B45CA2EB8B2E"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"55{{ $('Switch').item.json.fone }}\",\n  \"text\": \"{{ $json.msg }}\",\n  \"delay\": 123\n  \n}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                1600,
+                -112
+            ],
+            "id": "137a8c5d-35e5-4ce1-804c-5ef74dda517f",
+            "name": "EnviaMsgWhatsapp"
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "When clicking ‘Execute workflow’": {
+            "main": [
+                [
+                    {
+                        "node": "BuscaCobranças",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "BuscaCobranças": {
+            "main": [
+                [
+                    {
+                        "node": "GeraArrayCobrancas",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "GeraArrayCobrancas": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Over Items": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Edit Fields",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch": {
+            "main": [
+                [
+                    {
+                        "node": "MsgAtrasado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "MsgPendente",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "MsgAtrasado": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "MsgPendente": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Edit Fields": {
+            "main": [
+                [
+                    {
+                        "node": "Switch",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge": {
+            "main": [
+                [
+                    {
+                        "node": "EnviaMsgWhatsapp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "EnviaMsgWhatsapp": {
+            "main": [
+                [
+                    {
+                        "node": "Wait",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "versionId": "65cd1e4a-e860-4502-b77b-a29b4ef20cbf",
+    "meta": {
+        "instanceId": "ea98fcfe3337d7f6e572381f1a8f6f2f6dbd079349142d073b92a92a3b60aa97"
+    },
+    "id": "sZ2WXB6zxrRNBe1a",
+    "tags": []
+}

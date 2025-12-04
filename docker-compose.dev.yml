@@ -1,0 +1,158 @@
+services:
+  db:
+    image: postgres:16.3-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: docker
+      POSTGRES_DB: cobrancas_db
+    ports:
+      - 5432:5432
+    networks:
+      - app_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-init:
+    image: postgres:16.3-alpine
+    container_name: cobrancas_db_init
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-docker}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-cobrancas_db}
+      - N8N_DB_NAME=${N8N_DB_NAME:-n8n}
+      - EVOLUTION_DB_NAME=${EVOLUTION_DB_NAME:-evolution}
+    volumes:
+      - ./scripts/docker/init-databases.sh:/init-databases.sh:ro
+    networks:
+      - app_network
+    command: ["/bin/sh", "/init-databases.sh"]
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    container_name: cobrancas_zap_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: cobrancas_zap_n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=${POSTGRES_PORT:-5432}
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME:-n8n}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-postgres}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-docker}
+      - DB_POSTGRESDB_SCHEMA=${N8N_DB_SCHEMA:-public}
+      - QUEUE_MODE=redis
+      - QUEUE_REDIS_HOST=redis
+      - QUEUE_REDIS_PORT=${REDIS_PORT:-6379}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - app_network
+
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.2
+    container_name: cobrancas_zap_evolution_api
+    restart: unless-stopped
+    ports:
+      - "${EVOLUTION_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://localhost:8080}
+      - SERVER_PORT=8080
+      - DOCKER_ENV=true
+      - DEL_INSTANCE=false
+      - CONFIG_SESSION_PHONE_CLIENT=${EVOLUTION_SESSION_CLIENT:-EvolutionAPI}
+      - CONFIG_SESSION_PHONE_NAME=${EVOLUTION_SESSION_NAME:-Chrome}
+      - STORE_MESSAGES=true
+      - STORE_MESSAGE_UP=true
+      - STORE_CONTACTS=true
+      - STORE_CHATS=true
+      - CLEAN_STORE_CLEANING_INTERVAL=${EVOLUTION_CLEAN_INTERVAL:-7200}
+      - CLEAN_STORE_MESSAGES=true
+      - CLEAN_STORE_MESSAGE_UP=true
+      - CLEAN_STORE_CONTACTS=true
+      - CLEAN_STORE_CHATS=true
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=${EVOLUTION_REDIS_URI:-redis://redis:6379}
+      - CACHE_REDIS_PREFIX_KEY=${EVOLUTION_REDIS_PREFIX:-evolution}
+      - CACHE_REDIS_TTL=${EVOLUTION_REDIS_TTL:-604800}
+      - CACHE_REDIS_SAVE_INSTANCES=${EVOLUTION_REDIS_SAVE_INSTANCES:-true}
+      - AUTHENTICATION_TYPE=secret
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-change_me}
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      - QRCODE_LIMIT=${EVOLUTION_QRCODE_LIMIT:-30}
+      - RABBITMQ_ENABLED=false
+      - CHATWOOT_ENABLED=${EVOLUTION_CHATWOOT_ENABLED:-true}
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-docker}@db:${POSTGRES_PORT:-5432}/${EVOLUTION_DB_NAME:-evolution}?schema=public
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - WEBHOOK_GLOBAL_ENABLED=${EVOLUTION_WEBHOOK_ENABLED:-true}
+      # - WEBHOOK_GLOBAL_URL=${EVOLUTION_WEBHOOK_URL:-http://localhost:4444/api/webhooks/evolution}
+      # - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
+      - LOG_LEVEL=${EVOLUTION_LOG_LEVEL:-ERROR}
+      - LOG_COLOR=false
+      - LOG_BAILEYS=${EVOLUTION_LOG_BAILEYS:-error}
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  evolution_instances:
+
+
+networks:
+  app_network:
+    driver: bridge

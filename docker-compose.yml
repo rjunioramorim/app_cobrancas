@@ -1,0 +1,36 @@
+services:
+  app-cobrancas:
+    image: ghcr.io/rjunioramorim/app-cobrancas:latest
+    pull_policy: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - AUTH_SECRET=${AUTH_SECRET}
+    networks:
+      - network_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.app-cobrancas.rule=Host(`cobrancas.smarttcode.com.br`)"
+        - "traefik.http.routers.app-cobrancas.entrypoints=websecure"
+        - "traefik.http.routers.app-cobrancas.tls=true"
+        - "traefik.http.routers.app-cobrancas.tls.certresolver=letsencrypt"
+        - "traefik.http.services.app-cobrancas.loadbalancer.server.port=3000"
+        - "traefik.http.routers.app-cobrancas-http.rule=Host(`cobrancas.smarttcode.com.br`)"
+        - "traefik.http.routers.app-cobrancas-http.entrypoints=web"
+        - "traefik.http.routers.app-cobrancas-http.middlewares=redirect-to-https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+        - "traefik.docker.network=network_public"
+
+networks:
+  network_public:
+    name: network_public
+    external: true
