@@ -1,13 +1,22 @@
-import { PrismaClient, Role } from "../src/generated/prisma/client";
-import bcrypt from "bcrypt";
+import { PrismaClient, Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import "dotenv/config";
 
 const prisma = new PrismaClient();
 
 async function main() {
-    const passwordHash = await bcrypt.hash("password", 10);
+    // 🔐 Carrega senha do admin
+    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
 
-    const adminEmail = "admin@admin.com";
+    if (!process.env.ADMIN_PASSWORD) {
+        console.warn("⚠️ ADMIN_PASSWORD não definido no .env; usando valor padrão (admin123).");
+    }
 
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@admin.com";
+
+    // 👤 Criação / Atualização do usuário admin
     await prisma.user.upsert({
         where: { email: adminEmail },
         update: {
@@ -26,24 +35,25 @@ async function main() {
         },
     });
 
-    // Remove todos os demais usuários, clientes e cobranças
-    await prisma.cobranca.deleteMany({});
-    await prisma.client.deleteMany({});
-    await prisma.user.deleteMany({
-        where: { email: { not: adminEmail } },
-    });
+    // 🧹 Limpeza das outras tabelas (em ordem segura)
+    try {
+        await prisma.cobranca.deleteMany({});
+        await prisma.client.deleteMany({});
+        await prisma.user.deleteMany({
+            where: { email: { not: adminEmail } },
+        });
+    } catch (err) {
+        console.error("⚠️ Erro ao limpar tabelas:", err);
+    }
 
-    console.log("✅ Seed concluído:");
-    console.log(`   - Admin: ${adminEmail}`);
+    console.log("✅ Seed executado com sucesso.");
+    console.log(`   👤 Admin criado/atualizado: ${adminEmail}`);
 }
 
 main()
-    .then(async () => {
-        await prisma.$disconnect();
-    })
+    .then(async () => await prisma.$disconnect())
     .catch(async (error) => {
-        console.error("Erro ao executar seed:", error);
+        console.error("❌ Erro no seed:", error);
         await prisma.$disconnect();
         process.exit(1);
     });
-
