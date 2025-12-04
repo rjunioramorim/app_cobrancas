@@ -1,7 +1,6 @@
 services:
   app-cobrancas:
     image: ghcr.io/rjunioramorim/app-cobrancas:latest
-    pull_policy: always
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
