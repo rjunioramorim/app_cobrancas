@@ -10,7 +10,7 @@ const envSchema = z.object({
         message: "DATABASE_URL deve começar com 'postgresql://' ou 'postgres://'",
       }
     ),
-  AUTH_SECRET: z.string().min(1).optional(),
+  AUTH_SECRET: z.string().min(1, "AUTH_SECRET é obrigatório"),
   NEXTAUTH_URL: z.string().url().optional(),
 });
 

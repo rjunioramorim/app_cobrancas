@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/server/utils/admin-auth";
 import { generateMonthlyBills } from "@/server/services/billing-scheduler.service";
 import { AppError } from "@/server/utils/errors";
-import { prisma } from "@/lib/db";
 
 type RouteContext = {
   params: Promise<{ userId: string }>;
@@ -20,6 +19,7 @@ export async function POST(
     const { month, year } = body;
 
     // Verifica se o usuário existe
+    const { prisma } = await import("@/lib/db");
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, nome: true, email: true },

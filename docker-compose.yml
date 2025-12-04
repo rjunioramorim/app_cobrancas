@@ -4,8 +4,9 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - AUTH_SECRET=${AUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://cobrancas.smarttcode.com.br}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://cobrancas.smarttcode.com.br}
     networks:
       - network_public
     deploy:
