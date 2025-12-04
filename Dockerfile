@@ -26,6 +26,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Gera o Prisma Client antes do build
 RUN npx prisma generate
 
+# Executa migrations e seed durante o build
+# Nota: DATABASE_URL deve estar disponível durante o build
+RUN npx prisma migrate deploy || echo "⚠️ Migrations já aplicadas ou DATABASE_URL não configurado."
+RUN npx prisma db seed || echo "⚠️ Seed já executado ou não configurado."
+
 # Build do Next.js (standalone)
 RUN npm run build
 
@@ -46,17 +51,11 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copia arquivos necessários
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copia o entrypoint
-COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x docker-entrypoint.sh
-
 EXPOSE 3000
 
-# Usuário precisa ser root para migrations
-USER root
+USER nextjs
 
-ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
+CMD ["node", "server.js"]
