@@ -47,5 +47,10 @@ jobs:
 
       # --- Atualização automática do Portainer (opcional) ---
       - name: Trigger Portainer Webhook
-        if: secrets.PORTAINER_WEBHOOK_URL != ''
-        run: curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.PORTAINER_WEBHOOK_URL }}" ]; then
+            curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+          else
+            echo "PORTAINER_WEBHOOK_URL não configurado, pulando webhook"
+          fi
