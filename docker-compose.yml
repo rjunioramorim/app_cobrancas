@@ -9,6 +9,8 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://cobrancas.smarttcode.com.br}
     networks:
       - network_public
+    ports:
+      - 3000:3000
     deploy:
       mode: replicated
       replicas: 1

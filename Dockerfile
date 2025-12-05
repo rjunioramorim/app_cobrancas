@@ -1,71 +1,71 @@
-# -----------------------------
-# 1) STAGE: deps
-# -----------------------------
-FROM node:20-alpine AS deps
+# Dockerfile
+FROM node:20-alpine AS base
+
+# Instala dependências necessárias
+FROM base AS deps
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat openssl
+# Copia arquivos de dependências
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
 
-COPY package.json package-lock.json* pnpm-lock.yaml* ./
-COPY prisma ./prisma
+# Instala dependências
+RUN npm ci
 
-RUN npm install
+# Gera o Prisma Client
+RUN npx prisma generate
 
-# -----------------------------
-# 2) STAGE: builder
-# -----------------------------
-FROM node:20-alpine AS builder
+# Build da aplicação
+FROM base AS builder
 WORKDIR /app
-
-# Aceita DATABASE_URL como build arg
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-
-# Instala Prisma globalmente
-RUN npm install -g prisma@^6.19.0
-
-RUN apk add --no-cache libc6-compat openssl
-
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Gera o Prisma Client
-RUN prisma generate
+# Desabilita telemetria do Next.js
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Executa migrations durante o build
-# Nota: DATABASE_URL deve estar disponível durante o build
-RUN prisma migrate deploy || echo "⚠️ Migrations já aplicadas ou DATABASE_URL não configurado."
-
-# Build do Next.js
+# Build
 RUN npm run build
 
-# -----------------------------
-# 3) STAGE: runner (produção)
-# -----------------------------
-FROM node:20-alpine AS runner
+# Imagem de produção
+FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV=production
 
-RUN apk add --no-cache libc6-compat openssl
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Instala Prisma globalmente no runner também (para possíveis comandos futuros)
-RUN npm install -g prisma@^6.19.0
+# Cria usuário não-root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+# Copia arquivos necessários
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
+
+# Copia arquivos de build
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copia Prisma e dependências necessárias para migrations
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/.next/standalone ./
 
-# Copia o entrypoint
-COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+# Copia binários necessários do Prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
-USER appuser
+# Copia o entrypoint script
+COPY --chown=nextjs:nodejs entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+USER nextjs
 
 EXPOSE 3000
-ENTRYPOINT ["./docker-entrypoint.sh"]
 
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+# Usa o entrypoint para executar migrations antes de iniciar
+ENTRYPOINT ["./entrypoint.sh"]
